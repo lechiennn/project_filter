@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import hydra
 import pyrootutils
-from lightning import LightningDataModule, LightningModule, Trainer
+from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.loggers import Logger
 from omegaconf import DictConfig
 
@@ -69,15 +69,15 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
         log.info("Logging hyperparameters!")
         utils.log_hyperparameters(object_dict)
 
-    log.info("Starting testing!")
-    trainer.test(model=model, datamodule=datamodule, ckpt_path=cfg.ckpt_path)
+    # log.info("Starting testing!")
+    # trainer.test(model=model, datamodule=datamodule, ckpt_path=cfg.ckpt_path)
 
     # for predictions use trainer.predict(...)
-    # predictions = trainer.predict(model=model, dataloaders=dataloaders, ckpt_path=cfg.ckpt_path)
+    predictions = trainer.predict(model=model, datamodule=datamodule, ckpt_path=cfg.ckpt_path)
 
-    metric_dict = trainer.callback_metrics
+    # metric_dict = trainer.callback_metrics
 
-    return metric_dict, object_dict
+    return predictions, datamodule.predict_dataloader()
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="eval.yaml")
@@ -86,8 +86,13 @@ def main(cfg: DictConfig) -> None:
     # (e.g. ask for tags if none are provided in cfg, print cfg tree, etc.)
     utils.extras(cfg)
 
-    evaluate(cfg)
+    predictions, dataloader = evaluate(cfg)
 
+    bx, by =  next(iter(dataloader))
+    from src.data.dlib_datamodule import TransformDataset
+    import torchvision
+    annotated_batch = TransformDataset.annotate_tensor(bx, predictions[0])
+    torchvision.utils.save_image(annotated_batch, "outputs/test_eval_result.png")
 
 if __name__ == "__main__":
     main()

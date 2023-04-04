@@ -2,9 +2,11 @@ from typing import Any, List
 
 import torch
 import pytorch_lightning as pl
+from pytorch_lightning.loggers import WandbLogger
 from torchmetrics import MinMetric, MeanMetric
 from torchmetrics.regression.mae import MeanAbsoluteError
-
+from src.data.dlib_datamodule import TransformDataset
+import torchvision
 
 class DlibLitModule(pl.LightningModule):
     """Example of LightningModule for MNIST classification.
@@ -117,6 +119,9 @@ class DlibLitModule(pl.LightningModule):
         # otherwise metric would be reset by lightning after each epoch
         self.log("val/mae_best", self.val_mae_best.compute(), prog_bar=True, sync_dist=True)
 
+    def on_test_start(self) -> None:
+        self.samples = []
+
     def test_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.model_step(batch)
 
@@ -128,7 +133,18 @@ class DlibLitModule(pl.LightningModule):
         self.log("test/mae", self.test_mae, on_step=False,
                  on_epoch=True, prog_bar=True)
 
+        # log image
+        bx, by = batch
+        annotated_batch = TransformDataset.annotate_tensor(bx.cpu(), preds.cpu())
+        imgLog = torchvision.utils.make_grid(annotated_batch)
+        self.samples.append(imgLog)
+
         return {"loss": loss, "preds": preds, "targets": targets}
+    
+    def on_test_end(self) -> None:
+        wandb_logger = WandbLogger(project='filter')
+        # images = self.samples
+        wandb_logger.log_image(key='sample', images=self.samples)
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
         _, preds, _ = self.model_step(batch)

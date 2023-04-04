@@ -8,6 +8,7 @@ import os
 from xml.etree import ElementTree as ET
 import numpy as np
 from PIL import Image, ImageDraw
+import torchvision
 
 class DlibDataset(Dataset):
     
@@ -233,6 +234,15 @@ class DlibDataModule(LightningDataModule):
             shuffle=False,
         )
 
+    def predict_dataloader(self):
+        return DataLoader(
+            dataset=self.data_test,
+            batch_size=self.hparams.batch_size,
+            num_workers=self.hparams.num_workers,
+            pin_memory=self.hparams.pin_memory,
+            shuffle=False,
+        )
+
     def teardown(self, stage: Optional[str] = None):
         """Clean up after fit or test."""
         pass
@@ -249,7 +259,7 @@ class DlibDataModule(LightningDataModule):
 
 if __name__ == "__main__":
     import pyrootutils
-    import torchvision
+    # import torchvision
     from omegaconf import DictConfig
     import hydra
     import numpy as np
